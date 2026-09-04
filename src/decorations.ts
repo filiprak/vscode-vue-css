@@ -9,21 +9,43 @@ export interface ClassToken {
 
 const CLASS_ATTR_RE = /:?(?:v-bind:)?class\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
 const CLASS_WORD_RE = /-?[_a-zA-Z]+[_a-zA-Z0-9-]*/g;
-const TEMPLATE_OPEN_RE = /<template\b[^>]*>/i;
-const TEMPLATE_CLOSE_RE = /<\/template\s*>/i;
+const TEMPLATE_TAG_RE = /<\/?template\b[^>]*>/gi;
+const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
 
-/** Template-only slice of the file: [start, end) offsets. Falls back to whole file. */
+/**
+ * Template-only slice of the file: [start, end) offsets. Falls back to whole file.
+ *
+ * Depth-aware: nested `<template>` tags (e.g. `<template #append>` slots,
+ * `<template v-if>`) don't prematurely end the scope. Tags inside HTML
+ * comments are ignored.
+ */
 export function templateRange(vueText: string): { start: number; end: number } {
-  const open = TEMPLATE_OPEN_RE.exec(vueText);
-  if (!open || open.index === undefined) {
-    return { start: 0, end: vueText.length };
+  // Blank comments (length-preserving) so commented-out tags don't affect depth.
+  const clean = vueText.replace(HTML_COMMENT_RE, (m) => " ".repeat(m.length));
+  TEMPLATE_TAG_RE.lastIndex = 0;
+  let depth = 0;
+  let contentStart = -1;
+  let m: RegExpExecArray | null;
+  while ((m = TEMPLATE_TAG_RE.exec(clean)) !== null) {
+    const tag = m[0];
+    const isClose = tag.charAt(1) === "/";
+    if (!isClose && !/\/\s*>$/.test(tag)) {
+      if (depth === 0) {
+        contentStart = m.index + tag.length;
+      }
+      depth++;
+    } else if (isClose && depth > 0) {
+      depth--;
+      if (depth === 0 && contentStart !== -1) {
+        return { start: contentStart, end: m.index };
+      }
+    }
+    // Self-closing tags and stray closes at depth 0 are neutral.
   }
-  const contentStart = open.index + open[0].length;
-  TEMPLATE_CLOSE_RE.lastIndex = 0;
-  const remainder = vueText.slice(contentStart);
-  const close = TEMPLATE_CLOSE_RE.exec(remainder);
-  const contentEnd = close && close.index !== undefined ? contentStart + close.index : vueText.length;
-  return { start: contentStart, end: contentEnd };
+  if (contentStart !== -1) {
+    return { start: contentStart, end: vueText.length };
+  }
+  return { start: 0, end: vueText.length };
 }
 
 /**

@@ -1,46 +1,44 @@
 import * as vscode from "vscode";
 import { CssService } from "./cssService";
-import { registerClassUnderline } from "./decorations";
+import { findVueClassTokens, registerClassUnderline, templateRange } from "./decorations";
 
 const CLASS_WORD_RE = /-?[_a-zA-Z]+[_a-zA-Z0-9-]*/;
 
 /** True when position is inside the `<template>` block (or no template tag). */
-function isInTemplate(doc: vscode.TextDocument, pos: vscode.Position): boolean {
-  const text = doc.getText();
+export function isInTemplate(doc: vscode.TextDocument, pos: vscode.Position): boolean {
+  const { start, end } = templateRange(doc.getText());
   const offset = doc.offsetAt(pos);
-  const lower = text.toLowerCase();
-  const openIdx = lower.lastIndexOf("<template", offset);
-  const closeIdx = lower.lastIndexOf("</template", offset);
-  if (openIdx === -1) {
-    return true; // No template block — be permissive.
-  }
-  if (closeIdx > openIdx) {
-    return false; // Cursor is past the template close.
-  }
-  // Ensure the opening tag itself is closed before the cursor.
-  const openEnd = text.indexOf(">", openIdx);
-  return openEnd !== -1 && openEnd < offset;
+  return offset >= start && offset <= end;
 }
 
 /**
  * True when the cursor looks like it is inside a class attribute value,
  * e.g. `class="fo|"`, `:class="'fo|"`, `:class="{ 'fo|': ok }"`.
+ *
+ * Besides the same-line heuristic, the cursor counts as in-context when it
+ * sits inside (or right at the edge of) a detected class token — this covers
+ * continuation lines of multiline values such as `:class="{\n  'a|': … }"`.
  */
-function isClassAttributeContext(
+export function isClassAttributeContext(
   doc: vscode.TextDocument,
   pos: vscode.Position
 ): boolean {
   const line = doc.lineAt(pos.line).text.slice(0, pos.character);
   const eqIdx = line.search(/:?(?:v-bind:)?class\s*=/i);
-  if (eqIdx === -1) {
-    return false;
+  if (eqIdx !== -1) {
+    const after = line.slice(eqIdx);
+    // If the tag was already closed (`>`) after `class=`, we left the attribute.
+    if (!after.includes(">")) {
+      return true;
+    }
   }
-  const after = line.slice(eqIdx);
-  // If the tag was already closed (`>`) after `class=`, we left the attribute.
-  if (after.includes(">")) {
-    return false;
+  const offset = doc.offsetAt(pos);
+  for (const token of findVueClassTokens(doc.getText())) {
+    if (offset >= token.start && offset <= token.end) {
+      return true;
+    }
   }
-  return true;
+  return false;
 }
 
 export function activate(context: vscode.ExtensionContext): void {

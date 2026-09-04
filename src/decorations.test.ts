@@ -30,6 +30,26 @@ describe("templateRange", () => {
     const { start, end } = templateRange(text);
     expect(text.slice(start, end)).toBe(`<div />`);
   });
+
+  it("skips nested template tags (slots, v-if)", () => {
+    const text = `<template><div /><template #append><span /></template><p /></template>`;
+    const { start, end } = templateRange(text);
+    expect(text.slice(start, end)).toBe(
+      `<div /><template #append><span /></template><p />`
+    );
+  });
+
+  it("ignores template tags inside html comments", () => {
+    const text = `<template><div /><!-- </template> --><p /></template>`;
+    const { start, end } = templateRange(text);
+    expect(text.slice(start, end)).toBe(`<div /><!-- </template> --><p />`);
+  });
+
+  it("falls back to end of file when the template is unclosed", () => {
+    const text = `<template><div />`;
+    const { start, end } = templateRange(text);
+    expect(text.slice(start, end)).toBe(`<div />`);
+  });
 });
 
 describe("findVueClassTokens", () => {
@@ -70,5 +90,29 @@ describe("findVueClassTokens", () => {
 
   it("returns no tokens without class attributes", () => {
     expect(names(`<template><div id="x"></div></template>`)).toEqual([]);
+  });
+
+  it("finds classes after a nested slot template", () => {
+    const text = [
+      `<template>`,
+      `  <div class="outer">`,
+      `    <Item class="before">`,
+      `      <template #append>`,
+      `        <span class="slot-inner"></span>`,
+      `      </template>`,
+      `    </Item>`,
+      `    <i class="after-nested"></i>`,
+      `    <a :class="{ 'after-object': true }"></a>`,
+      `  </div>`,
+      `</template>`,
+    ].join("\n");
+    expect(names(text)).toEqual([
+      "outer",
+      "before",
+      "slot-inner",
+      "after-nested",
+      "after-object",
+      "true",
+    ]);
   });
 });
