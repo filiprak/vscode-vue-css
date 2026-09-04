@@ -161,7 +161,18 @@ export function registerClassUnderline(
     }),
     vscode.workspace.createFileSystemWatcher("**/*.css").onDidChange(() => refreshAll()),
     vscode.workspace.createFileSystemWatcher("**/*.css").onDidCreate(() => refreshAll()),
-    vscode.workspace.createFileSystemWatcher("**/*.css").onDidDelete(() => refreshAll())
+    vscode.workspace.createFileSystemWatcher("**/*.css").onDidDelete(() => refreshAll()),
+    // Intermediate re-export modules (e.g. `css/index.ts` in a
+    // `Vue -> dir -> index.ts -> .css` chain) also affect resolution.
+    vscode.workspace
+      .createFileSystemWatcher("**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts,vue}")
+      .onDidChange(() => refreshAll()),
+    vscode.workspace
+      .createFileSystemWatcher("**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts,vue}")
+      .onDidCreate(() => refreshAll()),
+    vscode.workspace
+      .createFileSystemWatcher("**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts,vue}")
+      .onDidDelete(() => refreshAll())
   );
 
   // Initial paint for already-visible editors.

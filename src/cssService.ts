@@ -3,7 +3,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import fg from "fast-glob";
 import { parseCssClasses } from "./cssParser";
-import { getVueCssImports } from "./vueImports";
+import { getDeepVueCssImports } from "./vueImports";
 
 interface CssFileCache {
   mtimeMs: number;
@@ -172,8 +172,10 @@ export class CssService {
     }
 
     const vueDir = path.dirname(vueUri.fsPath);
-    const local = getVueCssImports(vueText, vueDir, workspaceFolder).filter((p) =>
-      fs.existsSync(p)
+    // Deep resolution: follows JS/TS re-export chains (e.g. `import "../css"`
+    // -> `css/index.ts` -> `import "./styles.css"`) and CSS `@import`s.
+    const local = getDeepVueCssImports(vueText, vueDir, workspaceFolder).filter(
+      (p) => fs.existsSync(p)
     );
     const global = await this.getGlobalCssFiles(workspaceFolder);
     const sources = [...new Set([...local, ...global])];
