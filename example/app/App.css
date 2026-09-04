@@ -1,0 +1,7 @@
+.app {
+  display: block;
+}
+
+.card .card-title {
+  font-weight: bold;
+}
