@@ -2,6 +2,8 @@
 
 A VSCode extension that provides CSS class completion, go-to-definition, hover info, and underlining in Vue files — based on the CSS files imported in `<script setup>` plus configurable global CSS.
 
+![Resolved classes underlined in a Vue template](images/screenshot.png)
+
 ## Features
 
 - **Completion** — suggests class names inside `class`, `:class`, and `v-bind:class` attributes.
