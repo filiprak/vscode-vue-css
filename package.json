@@ -42,6 +42,11 @@
           "type": "boolean",
           "default": true,
           "description": "Enable hover showing which CSS file defines a class."
+        },
+        "vueCss.enableUnderline": {
+          "type": "boolean",
+          "default": true,
+          "description": "Underline class names in Vue templates that resolve to a known CSS file."
         }
       }
     },

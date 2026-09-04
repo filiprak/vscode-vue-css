@@ -146,23 +146,29 @@ export class CssService {
   /**
    * All classes visible from a Vue file:
    * setup-script `.css` imports + global CSS from settings.
+   * Pass `vueTextOverride` to use a dirty (unsaved) buffer instead of disk.
    */
-  async getClassesForVueFile(vueUri: vscode.Uri): Promise<{
+  async getClassesForVueFile(
+    vueUri: vscode.Uri,
+    vueTextOverride?: string
+  ): Promise<{
     classes: Map<string, vscode.Location[]>;
     sources: string[];
   }> {
     const workspaceFolder = this.workspaceFolderFor(vueUri);
-    let vueText = "";
-    try {
-      vueText = Buffer.from(
-        await vscode.workspace.fs.readFile(vueUri)
-      ).toString("utf8");
-    } catch {
-      // Fall back to open document text when fs read fails.
-      const doc = vscode.workspace.textDocuments.find(
-        (d) => d.uri.toString() === vueUri.toString()
-      );
-      vueText = doc?.getText() ?? "";
+    let vueText = vueTextOverride ?? "";
+    if (vueTextOverride === undefined) {
+      try {
+        vueText = Buffer.from(
+          await vscode.workspace.fs.readFile(vueUri)
+        ).toString("utf8");
+      } catch {
+        // Fall back to open document text when fs read fails.
+        const doc = vscode.workspace.textDocuments.find(
+          (d) => d.uri.toString() === vueUri.toString()
+        );
+        vueText = doc?.getText() ?? "";
+      }
     }
 
     const vueDir = path.dirname(vueUri.fsPath);

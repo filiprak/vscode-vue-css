@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { CssService } from "./cssService";
+import { registerClassUnderline } from "./decorations";
 
 const CLASS_WORD_RE = /-?[_a-zA-Z]+[_a-zA-Z0-9-]*/;
 
@@ -48,10 +49,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const selector: vscode.DocumentSelector = { language: "vue" };
 
+  const underline = registerClassUnderline(context, service);
+
   const refresh = vscode.commands.registerCommand(
     "vueCss.refreshCache",
     () => {
       service.clearCache();
+      underline.refreshAll();
       void vscode.window.showInformationMessage("Vue CSS cache cleared.");
     }
   );
