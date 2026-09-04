@@ -1,0 +1,78 @@
+{
+  "name": "vscode-vue-css",
+  "displayName": "Vue CSS Intellisense",
+  "description": "Vue class completion and go-to-definition from CSS files imported in <script setup> plus configurable global CSS.",
+  "version": "0.1.0",
+  "publisher": "you",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:vue"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Vue CSS Intellisense",
+      "properties": {
+        "vueCss.globalCss": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Global CSS files resolvable in every Vue file. Entries can be absolute paths, workspace-relative paths (e.g. `src/assets/global.css`), or glob patterns (e.g. `src/**/*.css`) relative to the workspace folder."
+        },
+        "vueCss.enableCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable class-name completions in Vue templates."
+        },
+        "vueCss.enableDefinition": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable go-to-definition from class names in Vue templates to CSS files."
+        },
+        "vueCss.enableHover": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable hover showing which CSS file defines a class."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "vueCss.refreshCache",
+        "title": "Vue CSS: Refresh class cache"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "tsc --noEmit -p ./",
+    "package": "pnpm dlx @vscode/vsce package",
+    "vscode:prepublish": "pnpm run compile"
+  },
+  "dependencies": {
+    "fast-glob": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.6.0"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.24.0",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@11.24.0"
+}

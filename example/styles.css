@@ -1,0 +1,12 @@
+.btn {
+  padding: 8px 12px;
+}
+
+.btn-primary {
+  background: blue;
+  color: white;
+}
+
+.card .card-title {
+  font-weight: bold;
+}
