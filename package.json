@@ -75,8 +75,8 @@
   "scripts": {
     "vscode:prepublish": "npm run esbuild-base -- --minify",
     "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
-    "compile": "pnpm run esbuild-base -- --sourcemap",
-    "watch": "pnpm run esbuild-base -- --sourcemap --watch",
+    "compile": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "watch": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
     "lint": "tsc --noEmit -p ./",
     "test": "vitest run",
     "package": "pnpm vsce package --no-dependencies",
