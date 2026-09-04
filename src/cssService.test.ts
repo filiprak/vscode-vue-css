@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function disposable() {
   return { dispose() {} };
@@ -53,8 +53,10 @@ vi.mock("vscode", () => {
         dispose() {},
       }),
       getConfiguration: () => ({
-        // No global CSS configured in tests.
-        get: (_key: string, defaultValue: unknown) => defaultValue,
+        get: (key: string, defaultValue: unknown) => {
+          const overrides = (globalThis as any).__vueCssTestConfig ?? {};
+          return key in overrides ? overrides[key] : defaultValue;
+        },
       }),
       getWorkspaceFolder: () => undefined,
       openTextDocument: async () => {
@@ -76,9 +78,14 @@ import { CssService } from "./cssService";
 const tmpDirs: string[] = [];
 let service: CssService | undefined;
 
+beforeEach(() => {
+  (globalThis as any).__vueCssTestConfig = {};
+});
+
 afterEach(() => {
   service?.dispose();
   service = undefined;
+  delete (globalThis as any).__vueCssTestConfig;
   while (tmpDirs.length > 0) {
     fs.rmSync(tmpDirs.pop()!, { recursive: true, force: true });
   }
@@ -124,6 +131,24 @@ describe("CssService.getCssClasses", () => {
     service = new CssService();
     expect(await service.getCssClasses("/no/such/file.css")).toEqual(new Map());
   });
+
+  it("skips css files above the size guard", async () => {
+    service = new CssService();
+    const dir = makeTmp({ "big.css": ".a{}\n".repeat(500) }); // ~3KB
+    const cssPath = path.join(dir, "big.css");
+    expect((await service.getCssClasses(cssPath)).size).toBeGreaterThan(0);
+    (globalThis as any).__vueCssTestConfig = { maxCssFileSizeKb: 1 };
+    expect(await service.getCssClasses(cssPath)).toEqual(new Map());
+  });
+
+  it("evicts least-recently-used css entries beyond the cap", async () => {
+    service = new CssService();
+    (globalThis as any).__vueCssTestConfig = { maxCachedFiles: 1 };
+    const dir = makeTmp({ "a.css": `.a {}`, "b.css": `.b {}` });
+    const first = await service.getCssClasses(path.join(dir, "a.css"));
+    await service.getCssClasses(path.join(dir, "b.css"));
+    expect(await service.getCssClasses(path.join(dir, "a.css"))).not.toBe(first);
+  });
 });
 
 describe("CssService.getClassesForVueFile", () => {
@@ -148,5 +173,38 @@ describe("CssService.getClassesForVueFile", () => {
     expect(classes.get("foo-bar")![0].uri.fsPath).toBe(
       path.join(dir, "css", "styles.css")
     );
+  });
+
+  it("serves repeated resolves from the per-Vue cache", async () => {
+    service = new CssService();
+    const dir = makeTmp({ "a.css": `.a {}` });
+    const vueText = `<script setup>import "./a.css";</script>`;
+    const uri = vueUri(path.join(dir, "App.vue"));
+    const first = await service.getClassesForVueFile(uri, vueText);
+    const second = await service.getClassesForVueFile(uri, vueText);
+    expect(second.classes).toBe(first.classes);
+    expect(second.sources).toBe(first.sources);
+  });
+
+  it("recomputes when the Vue buffer changes and on clearCache", async () => {
+    service = new CssService();
+    const dir = makeTmp({ "a.css": `.a {}`, "b.css": `.b {}` });
+    const uri = vueUri(path.join(dir, "App.vue"));
+    const first = await service.getClassesForVueFile(
+      uri,
+      `<script setup>import "./a.css";</script>`
+    );
+    const changed = await service.getClassesForVueFile(
+      uri,
+      `<script setup>import "./b.css";</script>`
+    );
+    expect(changed.classes).not.toBe(first.classes);
+    expect(changed.classes.has("b")).toBe(true);
+    service.clearCache();
+    const afterClear = await service.getClassesForVueFile(
+      uri,
+      `<script setup>import "./b.css";</script>`
+    );
+    expect(afterClear.classes).not.toBe(changed.classes);
   });
 });

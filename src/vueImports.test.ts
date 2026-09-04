@@ -202,4 +202,16 @@ describe("getDeepVueCssImports", () => {
       []
     );
   });
+
+  it("accepts options and skips oversized files while walking", () => {
+    const dir = makeTmp({
+      "a.css": `@import "./big.css";\n.a {}`,
+      "big.css": ".b{}\n".repeat(1000),
+    });
+    const vue = `<script setup>import "./a.css";</script>`;
+    const names = (opts?: { maxFileBytes?: number }) =>
+      getDeepVueCssImports(vue, dir, undefined, opts).map((p) => path.basename(p));
+    expect(names().sort()).toEqual(["a.css", "big.css"]);
+    expect(names({ maxFileBytes: 1024 })).toEqual(["a.css"]);
+  });
 });

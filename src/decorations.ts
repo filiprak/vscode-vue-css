@@ -72,12 +72,18 @@ export function registerClassUnderline(
 
   const pending = new Map<string, NodeJS.Timeout>();
   const DEBOUNCE_MS = 300;
+  // Monotonic per-document sequence — lets us drop out-of-order results
+  // when a newer update was scheduled while I/O was in flight.
+  const seq = new Map<string, number>();
 
   async function updateEditor(editor: vscode.TextEditor | undefined): Promise<void> {
     if (!editor || editor.document.languageId !== "vue") {
       return;
     }
     const doc = editor.document;
+    const uriKey = doc.uri.toString();
+    const mySeq = (seq.get(uriKey) ?? 0) + 1;
+    seq.set(uriKey, mySeq);
     if (!isUnderlineEnabled()) {
       editor.setDecorations(decoration, []);
       return;
@@ -89,6 +95,9 @@ export function registerClassUnderline(
     }
     // Use the dirty buffer so unsaved imports still resolve.
     const { classes } = await service.getClassesForVueFile(doc.uri, doc.getText());
+    if (seq.get(uriKey) !== mySeq) {
+      return; // Superseded by a newer update.
+    }
     // The document may have changed while we were awaiting I/O — recompute
     // token offsets against the current text before applying.
     if (editor.document !== doc || doc.isClosed) {
@@ -130,7 +139,16 @@ export function registerClassUnderline(
     }
   }
 
+  const cssWatcher = vscode.workspace.createFileSystemWatcher("**/*.css");
+  // Intermediate re-export modules (e.g. `css/index.ts` in a
+  // `Vue -> dir -> index.ts -> .css` chain) also affect resolution.
+  const moduleWatcher = vscode.workspace.createFileSystemWatcher(
+    "**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts,vue}"
+  );
+
   context.subscriptions.push(
+    cssWatcher,
+    moduleWatcher,
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       void updateEditor(editor);
     }),
@@ -159,20 +177,12 @@ export function registerClassUnderline(
         refreshAll();
       }
     }),
-    vscode.workspace.createFileSystemWatcher("**/*.css").onDidChange(() => refreshAll()),
-    vscode.workspace.createFileSystemWatcher("**/*.css").onDidCreate(() => refreshAll()),
-    vscode.workspace.createFileSystemWatcher("**/*.css").onDidDelete(() => refreshAll()),
-    // Intermediate re-export modules (e.g. `css/index.ts` in a
-    // `Vue -> dir -> index.ts -> .css` chain) also affect resolution.
-    vscode.workspace
-      .createFileSystemWatcher("**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts,vue}")
-      .onDidChange(() => refreshAll()),
-    vscode.workspace
-      .createFileSystemWatcher("**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts,vue}")
-      .onDidCreate(() => refreshAll()),
-    vscode.workspace
-      .createFileSystemWatcher("**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts,vue}")
-      .onDidDelete(() => refreshAll())
+    cssWatcher.onDidChange(() => refreshAll()),
+    cssWatcher.onDidCreate(() => refreshAll()),
+    cssWatcher.onDidDelete(() => refreshAll()),
+    moduleWatcher.onDidChange(() => refreshAll()),
+    moduleWatcher.onDidCreate(() => refreshAll()),
+    moduleWatcher.onDidDelete(() => refreshAll())
   );
 
   // Initial paint for already-visible editors.

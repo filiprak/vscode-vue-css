@@ -51,10 +51,19 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const underline = registerClassUnderline(context, service);
 
+  // Completion items are expensive to build at scale (one MarkdownString
+  // per class). Reuse them while the underlying class map is unchanged —
+  // the service returns the same Map instance on cache hits.
+  const completionCache = new Map<
+    string,
+    { classes: object; items: vscode.CompletionItem[] }
+  >();
+
   const refresh = vscode.commands.registerCommand(
     "vueCss.refreshCache",
     () => {
       service.clearCache();
+      completionCache.clear();
       underline.refreshAll();
       void vscode.window.showInformationMessage("Vue CSS cache cleared.");
     }
@@ -65,6 +74,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("vueCss")) {
         service.clearCache();
+        completionCache.clear();
       }
     })
   );
@@ -75,7 +85,8 @@ export function activate(context: vscode.ExtensionContext): void {
     {
       async provideCompletionItems(
         document,
-        position
+        position,
+        token
       ): Promise<vscode.CompletionItem[] | undefined> {
         if (!vscode.workspace.getConfiguration("vueCss").get<boolean>("enableCompletion", true)) {
           return undefined;
@@ -84,6 +95,14 @@ export function activate(context: vscode.ExtensionContext): void {
           return undefined;
         }
         const { classes } = await service.getClassesForVueFile(document.uri);
+        if (token.isCancellationRequested) {
+          return undefined;
+        }
+        const key = document.uri.toString();
+        const cached = completionCache.get(key);
+        if (cached && cached.classes === classes) {
+          return cached.items;
+        }
         const items: vscode.CompletionItem[] = [];
         for (const [name, locations] of classes) {
           const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Class);
@@ -96,6 +115,10 @@ export function activate(context: vscode.ExtensionContext): void {
           // Keep VSCode from filtering out hyphenated matches oddly.
           item.filterText = name;
           items.push(item);
+        }
+        completionCache.set(key, { classes, items });
+        if (completionCache.size > 50) {
+          completionCache.clear();
         }
         return items;
       },
@@ -111,7 +134,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const definition = vscode.languages.registerDefinitionProvider(selector, {
     async provideDefinition(
       document,
-      position
+      position,
+      token
     ): Promise<vscode.Definition | undefined> {
       if (!vscode.workspace.getConfiguration("vueCss").get<boolean>("enableDefinition", true)) {
         return undefined;
@@ -125,6 +149,9 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       const word = document.getText(range);
       const { classes } = await service.getClassesForVueFile(document.uri);
+      if (token.isCancellationRequested) {
+        return undefined;
+      }
       return classes.get(word) ?? undefined;
     },
   });
@@ -134,7 +161,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const hover = vscode.languages.registerHoverProvider(selector, {
     async provideHover(
       document,
-      position
+      position,
+      token
     ): Promise<vscode.Hover | undefined> {
       if (!vscode.workspace.getConfiguration("vueCss").get<boolean>("enableHover", true)) {
         return undefined;
@@ -148,6 +176,9 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       const word = document.getText(range);
       const { classes } = await service.getClassesForVueFile(document.uri);
+      if (token.isCancellationRequested) {
+        return undefined;
+      }
       const locations = classes.get(word);
       if (!locations || locations.length === 0) {
         return undefined;

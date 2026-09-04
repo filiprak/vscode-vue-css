@@ -47,6 +47,18 @@
           "type": "boolean",
           "default": true,
           "description": "Underline class names in Vue templates that resolve to a known CSS file."
+        },
+        "vueCss.maxCssFileSizeKb": {
+          "type": "number",
+          "default": 1024,
+          "minimum": 0,
+          "description": "CSS files larger than this are skipped. Guards against parsing multi-MB bundles on large codebases."
+        },
+        "vueCss.maxCachedFiles": {
+          "type": "number",
+          "default": 200,
+          "minimum": 1,
+          "description": "Maximum parsed CSS files kept in the LRU cache. Bounds memory usage on large codebases."
         }
       }
     },

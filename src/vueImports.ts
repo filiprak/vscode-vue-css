@@ -145,6 +145,16 @@ function isFile(p: string): boolean {
   }
 }
 
+/** File size in bytes, or undefined when the file cannot be stated. */
+function fileSize(p: string): number | undefined {
+  try {
+    const stat = fs.statSync(p);
+    return stat.isFile() ? stat.size : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function isDirectory(p: string): boolean {
   try {
     return fs.statSync(p).isDirectory();
@@ -233,12 +243,29 @@ export function resolveJsImport(
   return resolveFileOrDirIndex(base);
 }
 
-function readTextFile(absPath: string): string | undefined {
+function readTextFile(absPath: string, maxFileBytes?: number): string | undefined {
   try {
+    if (maxFileBytes !== undefined) {
+      const size = fs.statSync(absPath).size;
+      if (size > maxFileBytes) {
+        return undefined;
+      }
+    }
     return fs.readFileSync(absPath, "utf8");
   } catch {
     return undefined;
   }
+}
+
+export interface DeepResolveOptions {
+  /** Max import hops to follow. Defaults to 10. */
+  maxDepth?: number;
+  /**
+   * Files larger than this (bytes) are skipped while walking.
+   * Guards against reading multi-MB bundles on every resolve.
+   * Undefined (default) means no limit — preserves legacy behavior.
+   */
+  maxFileBytes?: number;
 }
 
 /**
@@ -252,8 +279,12 @@ export function getDeepVueCssImports(
   vueText: string,
   vueDir: string,
   workspaceFolder?: string,
-  maxDepth = 10
+  maxDepthOrOpts: number | DeepResolveOptions = 10
 ): string[] {
+  const opts: DeepResolveOptions =
+    typeof maxDepthOrOpts === "number" ? { maxDepth: maxDepthOrOpts } : maxDepthOrOpts;
+  const maxDepth = opts.maxDepth ?? 10;
+  const maxFileBytes = opts.maxFileBytes;
   const setup = extractSetupBlock(vueText);
   if (!setup) {
     return [];
@@ -300,11 +331,22 @@ export function getDeepVueCssImports(
     }
     if (isCssSpecifier(spec)) {
       const resolved = resolveCssImport(spec, dir, workspaceFolder);
-      if (!resolved || !pushCss(resolved)) {
+      if (!resolved) {
+        continue;
+      }
+      if (maxFileBytes !== undefined) {
+        // Skip missing or oversized files up-front so walk output matches
+        // what parsers will actually consume.
+        const size = fileSize(resolved);
+        if (size === undefined || size > maxFileBytes) {
+          continue;
+        }
+      }
+      if (!pushCss(resolved)) {
         continue;
       }
       // Follow `@import` chains inside CSS files.
-      const content = readTextFile(resolved);
+      const content = readTextFile(resolved, maxFileBytes);
       if (content !== undefined) {
         enqueueSpecifiers(
           extractCssImportPaths(content),
@@ -323,7 +365,7 @@ export function getDeepVueCssImports(
       continue;
     }
     visitedModules.add(norm);
-    const content = readTextFile(norm);
+    const content = readTextFile(norm, maxFileBytes);
     if (content === undefined) {
       continue;
     }
