@@ -5,7 +5,7 @@
       "type": "shell",
       "label": "npm: compile",
       "command": "pnpm",
-      "args": ["exec", "tsc", "-p", "./"],
+      "args": ["run", "compile"],
       "group": { "kind": "build", "isDefault": true },
       "presentation": { "reveal": "silent" },
       "problemMatcher": "$tsc"

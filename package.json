@@ -3,8 +3,11 @@
   "displayName": "Vue CSS Intellisense",
   "description": "Vue class completion and go-to-definition from CSS files imported in <script setup> plus configurable global CSS.",
   "version": "0.1.0",
-  "publisher": "you",
+  "author": "Filip Rak",
   "license": "MIT",
+  "repository": {
+    "url": "https://github.com/filiprak/vscode-vue-css.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -15,7 +18,7 @@
   "activationEvents": [
     "onLanguage:vue"
   ],
-  "main": "./out/extension.js",
+  "main": "./out/main.js",
   "contributes": {
     "configuration": {
       "title": "Vue CSS Intellisense",
@@ -70,12 +73,14 @@
     ]
   },
   "scripts": {
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
+    "compile": "pnpm run esbuild-base -- --sourcemap",
+    "watch": "pnpm run esbuild-base -- --sourcemap --watch",
     "lint": "tsc --noEmit -p ./",
     "test": "vitest run",
-    "package": "pnpm dlx @vscode/vsce package",
-    "vscode:prepublish": "pnpm run compile"
+    "package": "pnpm vsce package --no-dependencies",
+    "publish": "pnpm vsce publish --no-dependencies"
   },
   "dependencies": {
     "fast-glob": "^3.3.2"
@@ -83,15 +88,10 @@
   "devDependencies": {
     "@types/node": "^22.7.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
     "typescript": "^5.6.0",
     "vitest": "^5.0.0"
-  },
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "11.24.0",
-      "onFail": "download"
-    }
   },
   "packageManager": "pnpm@11.24.0"
 }
