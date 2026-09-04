@@ -61,6 +61,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "tsc --noEmit -p ./",
+    "test": "vitest run",
     "package": "pnpm dlx @vscode/vsce package",
     "vscode:prepublish": "pnpm run compile"
   },
@@ -70,7 +71,8 @@
   "devDependencies": {
     "@types/node": "^22.7.0",
     "@types/vscode": "^1.85.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^5.0.0"
   },
   "devEngines": {
     "packageManager": {

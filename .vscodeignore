@@ -3,5 +3,7 @@
 src/**
 .gitignore
 tsconfig.json
+vitest.config.ts
 example/**
 **/*.map
+**/*.test.js
