@@ -9,6 +9,7 @@ vi.mock("vscode", () => ({
 
 import {
   DEFAULT_UNDERLINE_OFFSET,
+  DEFAULT_UNDERLINE_STYLE,
   buildUnderlineTextDecoration,
   findVueClassTokens,
   templateRange,
@@ -125,32 +126,54 @@ describe("findVueClassTokens", () => {
 describe("buildUnderlineTextDecoration", () => {
   it("combines underline with a validated offset", () => {
     expect(buildUnderlineTextDecoration("3px")).toBe(
-      "underline; text-underline-offset: 3px"
+      "underline solid; text-underline-offset: 3px"
     );
     expect(buildUnderlineTextDecoration("  0.25em  ")).toBe(
-      "underline; text-underline-offset: 0.25em"
+      "underline solid; text-underline-offset: 0.25em"
     );
     expect(buildUnderlineTextDecoration("auto")).toBe(
-      "underline; text-underline-offset: auto"
+      "underline solid; text-underline-offset: auto"
     );
     expect(buildUnderlineTextDecoration("0")).toBe(
-      "underline; text-underline-offset: 0"
+      "underline solid; text-underline-offset: 0"
     );
   });
 
-  it("falls back to a plain underline for invalid values", () => {
-    expect(buildUnderlineTextDecoration("")).toBe("underline");
-    expect(buildUnderlineTextDecoration("   ")).toBe("underline");
-    expect(buildUnderlineTextDecoration("5")).toBe("underline");
-    expect(buildUnderlineTextDecoration("3px; color: red")).toBe("underline");
-    expect(buildUnderlineTextDecoration("underline")).toBe("underline");
-    expect(buildUnderlineTextDecoration("expression(alert(1))")).toBe("underline");
+  it("supports dashed, dotted and other line styles", () => {
+    expect(buildUnderlineTextDecoration("3px", "dashed")).toBe(
+      "underline dashed; text-underline-offset: 3px"
+    );
+    expect(buildUnderlineTextDecoration("3px", "dotted")).toBe(
+      "underline dotted; text-underline-offset: 3px"
+    );
+    expect(buildUnderlineTextDecoration("3px", "wavy")).toBe(
+      "underline wavy; text-underline-offset: 3px"
+    );
+    expect(buildUnderlineTextDecoration("3px", "double")).toBe(
+      "underline double; text-underline-offset: 3px"
+    );
   });
 
-  it("exposes a 3px default offset", () => {
+  it("falls back to a plain solid underline for invalid values", () => {
+    expect(buildUnderlineTextDecoration("")).toBe("underline solid");
+    expect(buildUnderlineTextDecoration("   ")).toBe("underline solid");
+    expect(buildUnderlineTextDecoration("5")).toBe("underline solid");
+    expect(buildUnderlineTextDecoration("3px; color: red")).toBe("underline solid");
+    expect(buildUnderlineTextDecoration("underline")).toBe("underline solid");
+    expect(buildUnderlineTextDecoration("expression(alert(1))")).toBe("underline solid");
+    expect(buildUnderlineTextDecoration("3px", "groovy")).toBe(
+      "underline solid; text-underline-offset: 3px"
+    );
+    expect(buildUnderlineTextDecoration("3px", "underline; color: red")).toBe(
+      "underline solid; text-underline-offset: 3px"
+    );
+  });
+
+  it("exposes a 3px solid default", () => {
     expect(DEFAULT_UNDERLINE_OFFSET).toBe("3px");
+    expect(DEFAULT_UNDERLINE_STYLE).toBe("solid");
     expect(buildUnderlineTextDecoration(DEFAULT_UNDERLINE_OFFSET)).toBe(
-      "underline; text-underline-offset: 3px"
+      "underline solid; text-underline-offset: 3px"
     );
   });
 });

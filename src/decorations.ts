@@ -97,23 +97,38 @@ function readUnderlineOffset(): string {
   return typeof raw === "string" ? raw : DEFAULT_UNDERLINE_OFFSET;
 }
 
+export const UNDERLINE_STYLES = ["solid", "double", "dotted", "dashed", "wavy"] as const;
+export type UnderlineStyle = (typeof UNDERLINE_STYLES)[number];
+export const DEFAULT_UNDERLINE_STYLE: UnderlineStyle = "solid";
+
+function readUnderlineStyle(): UnderlineStyle {
+  const raw = vscode.workspace
+    .getConfiguration("vueCss")
+    .get<string>("underlineStyle", DEFAULT_UNDERLINE_STYLE);
+  return (UNDERLINE_STYLES as readonly string[]).includes(raw)
+    ? (raw as UnderlineStyle)
+    : DEFAULT_UNDERLINE_STYLE;
+}
+
 /**
  * Build the `textDecoration` value for the underline.
  *
  * VSCode interpolates this string into a stylesheet rule as
  * `text-decoration:<value>;`, so a second declaration rides along and the
  * separate `text-underline-offset` property moves the line away from the
- * text. Invalid offsets fall back to a plain underline.
+ * text. Invalid offsets fall back to a plain underline; unknown styles fall
+ * back to solid.
  */
-export function buildUnderlineTextDecoration(offset: string): string {
+export function buildUnderlineTextDecoration(offset: string, style = "solid"): string {
+  const line = (UNDERLINE_STYLES as readonly string[]).includes(style) ? style : "solid";
   const value = offset.trim();
   if (!UNDERLINE_OFFSET_RE.test(value)) {
-    return "underline";
+    return `underline ${line}`;
   }
   if (UNITLESS_NUMBER_RE.test(value) && Number(value) !== 0) {
-    return "underline";
+    return `underline ${line}`;
   }
-  return `underline; text-underline-offset: ${value}`;
+  return `underline ${line}; text-underline-offset: ${value}`;
 }
 
 /** Underlines class names in Vue templates that resolve to a known CSS file. */
@@ -122,10 +137,11 @@ export function registerClassUnderline(
   service: CssService
 ): { refreshAll: () => void } {
   const initialOffset = readUnderlineOffset();
+  const initialStyle = readUnderlineStyle();
   let decoration = vscode.window.createTextEditorDecorationType({
-    textDecoration: buildUnderlineTextDecoration(initialOffset),
+    textDecoration: buildUnderlineTextDecoration(initialOffset, initialStyle),
   });
-  let builtOffset = initialOffset;
+  let builtKey = `${initialOffset}\n${initialStyle}`;
   context.subscriptions.push(decoration);
 
   const pending = new Map<string, NodeJS.Timeout>();
@@ -232,13 +248,18 @@ export function registerClassUnderline(
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("vueCss")) {
-        if (e.affectsConfiguration("vueCss.underlineOffset")) {
-          const next = readUnderlineOffset();
-          if (next !== builtOffset) {
-            builtOffset = next;
+        if (
+          e.affectsConfiguration("vueCss.underlineOffset") ||
+          e.affectsConfiguration("vueCss.underlineStyle")
+        ) {
+          const nextOffset = readUnderlineOffset();
+          const nextStyle = readUnderlineStyle();
+          const nextKey = `${nextOffset}\n${nextStyle}`;
+          if (nextKey !== builtKey) {
+            builtKey = nextKey;
             decoration.dispose();
             decoration = vscode.window.createTextEditorDecorationType({
-              textDecoration: buildUnderlineTextDecoration(next),
+              textDecoration: buildUnderlineTextDecoration(nextOffset, nextStyle),
             });
             context.subscriptions.push(decoration);
           }

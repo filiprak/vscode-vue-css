@@ -2,7 +2,7 @@
   "name": "vscode-vue-css",
   "displayName": "Vue CSS Intellisense",
   "description": "Vue class completion and go-to-definition from CSS files imported in <script setup> and <script> plus configurable global CSS.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "Filip Rak",
 	"publisher": "filiprak",
   "license": "MIT",
@@ -56,6 +56,12 @@
           "type": "string",
           "default": "3px",
           "description": "Gap between class-name text and its underline (any CSS length, e.g. \"3px\" or \"0.2em\"). Invalid values fall back to the default underline."
+        },
+        "vueCss.underlineStyle": {
+          "type": "string",
+          "enum": ["solid", "double", "dotted", "dashed", "wavy"],
+          "default": "solid",
+          "description": "Line style of the class-name underline."
         },
         "vueCss.maxCssFileSizeKb": {
           "type": "number",
