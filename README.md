@@ -1,6 +1,6 @@
 # Vue CSS Intellisense
 
-A VSCode extension that provides CSS class completion, go-to-definition, hover info, and underlining in Vue files — based on the CSS files imported in `<script setup>` plus configurable global CSS.
+A VSCode extension that provides CSS class completion, go-to-definition, hover info, and underlining in Vue files — based on the CSS files imported in `<script setup>` and `<script>` plus configurable global CSS.
 
 ![Resolved classes underlined in a Vue template](images/screenshot.png)
 
@@ -10,7 +10,7 @@ A VSCode extension that provides CSS class completion, go-to-definition, hover i
 - **Go to definition** — Ctrl+click a class in `<template>` to jump to its CSS definition.
 - **Hover** — shows which CSS files define a class.
 - **Underline** — highlights class names that resolve to a known CSS file.
-- **Deep resolution** — follows import chains such as `App.vue → import "../css" → css/index.ts → import "./styles.css"`, nested `.vue` files, and CSS `@import`s. Only `<script setup>` imports are considered; `<style scoped>` blocks are ignored.
+- **Deep resolution** — follows import chains such as `App.vue → import "../css" → css/index.ts → import "./styles.css"`, nested `.vue` files, and CSS `@import`s. Imports from both `<script setup>` and `<script>` are considered; `<style scoped>` blocks are ignored.
 
 ## Settings
 

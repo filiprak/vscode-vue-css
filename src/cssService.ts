@@ -236,7 +236,7 @@ export class CssService {
 
   /**
    * All classes visible from a Vue file:
-   * setup-script `.css` imports (deep) + global CSS from settings.
+   * script `.css` imports (`<script setup>` and `<script>`, deep) + global CSS from settings.
    * Pass `vueTextOverride` to use a dirty (unsaved) buffer instead of disk.
    *
    * Results are cached per Vue file and invalidated by file/config changes

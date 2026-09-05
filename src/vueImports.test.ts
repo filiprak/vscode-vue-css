@@ -6,6 +6,7 @@ import {
   extractAllImportSpecifiers,
   extractCssImportPaths,
   extractCssImportSpecifiers,
+  extractScriptBlocks,
   extractSetupBlock,
   getDeepVueCssImports,
   getVueCssImports,
@@ -43,6 +44,20 @@ describe("extractSetupBlock", () => {
   it("returns undefined without a setup script", () => {
     expect(extractSetupBlock(`<script>import "./x.css";</script>`)).toBeUndefined();
     expect(extractSetupBlock(`<template><div /></template>`)).toBeUndefined();
+  });
+});
+
+describe("extractScriptBlocks", () => {
+  it("returns setup and normal blocks in document order", () => {
+    expect(
+      extractScriptBlocks(
+        `<script>import "a";</script>\n<script setup>import "b";</script>`
+      )
+    ).toEqual([`import "a";`, `import "b";`]);
+  });
+
+  it("returns empty when there is no script block", () => {
+    expect(extractScriptBlocks(`<template><div /></template>`)).toEqual([]);
   });
 });
 
@@ -142,6 +157,20 @@ describe("getVueCssImports (shallow)", () => {
     const vue = `<script setup>import "../css";</script>`;
     expect(getVueCssImports(vue, path.join(dir, "app"), dir)).toEqual([]);
   });
+
+  it("resolves css imports from a normal script block", () => {
+    const dir = makeTmp({ "a.css": `.a {}` });
+    const vue = `<script>import "./a.css";</script>`;
+    expect(getVueCssImports(vue, dir)).toEqual([path.join(dir, "a.css")]);
+  });
+
+  it("combines setup and normal script blocks without duplicates", () => {
+    const dir = makeTmp({ "a.css": `.a {}`, "b.css": `.b {}` });
+    const vue = `<script>import "./a.css";</script>\n<script setup>import "./a.css";\nimport "./b.css";</script>`;
+    expect(getVueCssImports(vue, dir).sort()).toEqual(
+      [path.join(dir, "a.css"), path.join(dir, "b.css")].sort()
+    );
+  });
 });
 
 describe("getDeepVueCssImports", () => {
@@ -197,9 +226,30 @@ describe("getDeepVueCssImports", () => {
     ).toEqual(["leaf.css"]);
   });
 
-  it("returns empty without a setup block", () => {
-    expect(getDeepVueCssImports(`<script>import "./a.css";</script>`, "/repo")).toEqual(
-      []
+  it("returns empty without any script block", () => {
+    expect(
+      getDeepVueCssImports(`<template><div /></template>`, "/repo")
+    ).toEqual([]);
+  });
+
+  it("honors css imports from both setup and normal script blocks", () => {
+    const dir = makeTmp({ "a.css": `.a {}`, "b.css": `.b {}` });
+    const vue = `<script>import "./a.css";</script>\n<script setup>import "./b.css";</script>`;
+    expect(getDeepVueCssImports(vue, dir).sort()).toEqual(
+      [path.join(dir, "a.css"), path.join(dir, "b.css")].sort()
+    );
+  });
+
+  it("follows chains starting from a normal script block, incl. nested vue", () => {
+    const dir = makeTmp({
+      "child.vue": `<script>import "./child.css";</script>`,
+      "child.css": `.child {}`,
+      "lib.ts": `import "./lib.css";`,
+      "lib.css": `.lib {}`,
+    });
+    const vue = `<script>import "./child.vue";\nimport "./lib";</script>`;
+    expect(getDeepVueCssImports(vue, dir).sort()).toEqual(
+      [path.join(dir, "child.css"), path.join(dir, "lib.css")].sort()
     );
   });
 

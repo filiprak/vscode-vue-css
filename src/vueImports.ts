@@ -4,6 +4,9 @@ import * as path from "path";
 /** Match `<script ... setup ...>...</script>` and capture the inner JS/TS. */
 const SETUP_BLOCK_RE = /<script\b[^>]*\bsetup\b[^>]*>([\s\S]*?)<\/script\s*>/i;
 
+/** Match any `<script>` block (setup or normal), capturing attrs and body. */
+const SCRIPT_BLOCK_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+
 /** Static imports: `import 'x.css'`, `import y from 'x.css'`, `import('x.css')`. */
 const STATIC_IMPORT_RE =
   /import\s+(?:[^'"]*?from\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
@@ -31,7 +34,23 @@ export function extractSetupBlock(vueText: string): string | undefined {
   return m ? m[1] : undefined;
 }
 
-/** Raw import specifiers inside `<script setup>` that point at `.css` files. */
+/**
+ * Extract the bodies of ALL `<script>` blocks in document order —
+ * both `<script setup>` and normal `<script>`.
+ */
+export function extractScriptBlocks(vueText: string): string[] {
+  const out: string[] = [];
+  SCRIPT_BLOCK_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = SCRIPT_BLOCK_RE.exec(vueText)) !== null) {
+    if (m[2] !== undefined) {
+      out.push(m[2]);
+    }
+  }
+  return out;
+}
+
+/** Raw import specifiers inside a script block body that point at `.css` files. */
 export function extractCssImportSpecifiers(setupText: string): string[] {
   return extractAllImportSpecifiers(setupText).filter(
     (spec) => spec && isCssSpecifier(spec)
@@ -112,19 +131,16 @@ export function resolveCssImport(
 }
 
 /**
- * All resolvable absolute `.css` paths imported from `<script setup>`.
- * Deliberately ignores `<style scoped>` blocks — only setup-script imports.
+ * All resolvable absolute `.css` paths imported from `<script setup>` and
+ * normal `<script>` blocks.
+ * Deliberately ignores `<style scoped>` blocks — only script imports.
  */
 export function getVueCssImports(
   vueText: string,
   vueDir: string,
   workspaceFolder?: string
 ): string[] {
-  const setup = extractSetupBlock(vueText);
-  if (!setup) {
-    return [];
-  }
-  const specs = extractCssImportSpecifiers(setup);
+  const specs = extractScriptBlocks(vueText).flatMap(extractCssImportSpecifiers);
   const out: string[] = [];
   for (const spec of specs) {
     const resolved = resolveCssImport(spec, vueDir, workspaceFolder);
@@ -285,8 +301,8 @@ export function getDeepVueCssImports(
     typeof maxDepthOrOpts === "number" ? { maxDepth: maxDepthOrOpts } : maxDepthOrOpts;
   const maxDepth = opts.maxDepth ?? 10;
   const maxFileBytes = opts.maxFileBytes;
-  const setup = extractSetupBlock(vueText);
-  if (!setup) {
+  const blocks = extractScriptBlocks(vueText);
+  if (blocks.length === 0) {
     return [];
   }
   const cssOut: string[] = [];
@@ -305,11 +321,13 @@ export function getDeepVueCssImports(
     dir: string;
     depth: number;
   }
-  const queue: QueueEntry[] = extractAllImportSpecifiers(setup).map((spec) => ({
-    spec,
-    dir: vueDir,
-    depth: 0,
-  }));
+  const queue: QueueEntry[] = blocks.flatMap((block) =>
+    extractAllImportSpecifiers(block).map((spec) => ({
+      spec,
+      dir: vueDir,
+      depth: 0,
+    }))
+  );
 
   const enqueueSpecifiers = (
     specs: string[],
@@ -371,13 +389,9 @@ export function getDeepVueCssImports(
     }
     const nextDir = path.dirname(norm);
     if (/\.vue$/i.test(norm)) {
-      const nestedSetup = extractSetupBlock(content);
-      if (nestedSetup) {
-        enqueueSpecifiers(
-          extractAllImportSpecifiers(nestedSetup),
-          nextDir,
-          depth + 1
-        );
+      const nestedBlocks = extractScriptBlocks(content);
+      for (const block of nestedBlocks) {
+        enqueueSpecifiers(extractAllImportSpecifiers(block), nextDir, depth + 1);
       }
     } else {
       enqueueSpecifiers(extractAllImportSpecifiers(content), nextDir, depth + 1);

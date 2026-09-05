@@ -1,8 +1,8 @@
 {
   "name": "vscode-vue-css",
   "displayName": "Vue CSS Intellisense",
-  "description": "Vue class completion and go-to-definition from CSS files imported in <script setup> plus configurable global CSS.",
-  "version": "0.1.2",
+  "description": "Vue class completion and go-to-definition from CSS files imported in <script setup> and <script> plus configurable global CSS.",
+  "version": "0.1.3",
   "author": "Filip Rak",
 	"publisher": "filiprak",
   "license": "MIT",
