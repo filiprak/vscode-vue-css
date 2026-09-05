@@ -21,6 +21,7 @@ A VSCode extension that provides CSS class completion, go-to-definition, hover i
 | `vueCss.enableDefinition` | `true` | Go-to-definition for class names. |
 | `vueCss.enableHover` | `true` | Hover info for class names. |
 | `vueCss.enableUnderline` | `true` | Underline resolved class names. |
+| `vueCss.underlineOffset` | `"3px"` | Gap between class-name text and its underline (any CSS length, e.g. `"3px"` or `"0.2em"`). |
 | `vueCss.maxCssFileSizeKb` | `1024` | CSS files larger than this are skipped. |
 | `vueCss.maxCachedFiles` | `200` | Parsed CSS files kept in the LRU cache. |
 

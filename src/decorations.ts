@@ -82,14 +82,50 @@ function isUnderlineEnabled(): boolean {
   return vscode.workspace.getConfiguration("vueCss").get<boolean>("enableUnderline", true);
 }
 
+export const DEFAULT_UNDERLINE_OFFSET = "3px";
+
+// `auto` or a CSS length/percentage. Anything else is rejected so a bad
+// setting can neither break the underline nor inject extra CSS.
+const UNDERLINE_OFFSET_RE =
+  /^(auto|-?(\d+(\.\d+)?|\.\d+)(px|em|rem|ex|ch|cap|ic|lh|rlh|vw|vh|vi|vb|vmin|vmax|cm|mm|Q|in|pt|pc|%)?)$/i;
+const UNITLESS_NUMBER_RE = /^-?(\d+(\.\d+)?|\.\d+)$/;
+
+function readUnderlineOffset(): string {
+  const raw = vscode.workspace
+    .getConfiguration("vueCss")
+    .get<string>("underlineOffset", DEFAULT_UNDERLINE_OFFSET);
+  return typeof raw === "string" ? raw : DEFAULT_UNDERLINE_OFFSET;
+}
+
+/**
+ * Build the `textDecoration` value for the underline.
+ *
+ * VSCode interpolates this string into a stylesheet rule as
+ * `text-decoration:<value>;`, so a second declaration rides along and the
+ * separate `text-underline-offset` property moves the line away from the
+ * text. Invalid offsets fall back to a plain underline.
+ */
+export function buildUnderlineTextDecoration(offset: string): string {
+  const value = offset.trim();
+  if (!UNDERLINE_OFFSET_RE.test(value)) {
+    return "underline";
+  }
+  if (UNITLESS_NUMBER_RE.test(value) && Number(value) !== 0) {
+    return "underline";
+  }
+  return `underline; text-underline-offset: ${value}`;
+}
+
 /** Underlines class names in Vue templates that resolve to a known CSS file. */
 export function registerClassUnderline(
   context: vscode.ExtensionContext,
   service: CssService
 ): { refreshAll: () => void } {
-  const decoration = vscode.window.createTextEditorDecorationType({
-    textDecoration: "underline",
+  const initialOffset = readUnderlineOffset();
+  let decoration = vscode.window.createTextEditorDecorationType({
+    textDecoration: buildUnderlineTextDecoration(initialOffset),
   });
+  let builtOffset = initialOffset;
   context.subscriptions.push(decoration);
 
   const pending = new Map<string, NodeJS.Timeout>();
@@ -196,6 +232,17 @@ export function registerClassUnderline(
     }),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("vueCss")) {
+        if (e.affectsConfiguration("vueCss.underlineOffset")) {
+          const next = readUnderlineOffset();
+          if (next !== builtOffset) {
+            builtOffset = next;
+            decoration.dispose();
+            decoration = vscode.window.createTextEditorDecorationType({
+              textDecoration: buildUnderlineTextDecoration(next),
+            });
+            context.subscriptions.push(decoration);
+          }
+        }
         refreshAll();
       }
     }),

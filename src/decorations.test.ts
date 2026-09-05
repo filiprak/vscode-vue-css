@@ -7,7 +7,12 @@ vi.mock("vscode", () => ({
   },
 }));
 
-import { findVueClassTokens, templateRange } from "./decorations";
+import {
+  DEFAULT_UNDERLINE_OFFSET,
+  buildUnderlineTextDecoration,
+  findVueClassTokens,
+  templateRange,
+} from "./decorations";
 
 function names(vueText: string): string[] {
   return findVueClassTokens(vueText).map((t) => t.name);
@@ -114,5 +119,38 @@ describe("findVueClassTokens", () => {
       "after-object",
       "true",
     ]);
+  });
+});
+
+describe("buildUnderlineTextDecoration", () => {
+  it("combines underline with a validated offset", () => {
+    expect(buildUnderlineTextDecoration("3px")).toBe(
+      "underline; text-underline-offset: 3px"
+    );
+    expect(buildUnderlineTextDecoration("  0.25em  ")).toBe(
+      "underline; text-underline-offset: 0.25em"
+    );
+    expect(buildUnderlineTextDecoration("auto")).toBe(
+      "underline; text-underline-offset: auto"
+    );
+    expect(buildUnderlineTextDecoration("0")).toBe(
+      "underline; text-underline-offset: 0"
+    );
+  });
+
+  it("falls back to a plain underline for invalid values", () => {
+    expect(buildUnderlineTextDecoration("")).toBe("underline");
+    expect(buildUnderlineTextDecoration("   ")).toBe("underline");
+    expect(buildUnderlineTextDecoration("5")).toBe("underline");
+    expect(buildUnderlineTextDecoration("3px; color: red")).toBe("underline");
+    expect(buildUnderlineTextDecoration("underline")).toBe("underline");
+    expect(buildUnderlineTextDecoration("expression(alert(1))")).toBe("underline");
+  });
+
+  it("exposes a 3px default offset", () => {
+    expect(DEFAULT_UNDERLINE_OFFSET).toBe("3px");
+    expect(buildUnderlineTextDecoration(DEFAULT_UNDERLINE_OFFSET)).toBe(
+      "underline; text-underline-offset: 3px"
+    );
   });
 });
